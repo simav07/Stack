@@ -4,6 +4,9 @@
 // 4. Для печати stack_t в лог файл сделать STACK_LOG вида STACK_LOG(stack_t, stk1)
 //                                                                  (const char typeName[], stack_t stk1)
 // 5. Вызов StackVerify из StackError (обработка ошибок)
+// 6. При вызове StackVerify с помощью условной компиляции передается строка и функция в которой вызвана,
+//    затем в файл или в консоль печатается код ошибки, расшифровка ошибки и строка, файл
+// 7. Добавить проверки на размеры структуры, корректность параметров, корректность данных внутри
 
 typedef int err_t;
 
@@ -11,9 +14,9 @@ typedef int err_t;
 
 enum {
 
-    ERR_CTOR, //! Getted stack was already constructed
-
-
+    ERR_CTOR,       //! Getted stack was already constructed
+    ERR_CALLOC,     //! If calloc returned NULL
+    ERR_REALLOC,    //! If realloc returned NULL
 };
 
 const ssize_t MIN_CAPASITY = 5;
@@ -37,6 +40,8 @@ stackElem_t StackPop(stack_t * stk);
 //! Checking all possibly stack errors
 err_t StackError(stack_t stk);
 
+bool StackVerify(err_t ERR_CODE);
+
 static FILE * LOGFILE;
 
 int main() {
@@ -46,38 +51,30 @@ int main() {
 
     stack_t stk1 = {};
 
-    if (!StackCtor(&stk1, 3)) {
+    if (!StackCtor(&stk1, 10)) {
         printf("StackCtor error\n");
         return false;
     }
 
-    StackPush(&stk1, 1);
+    for (unsigned int i = 0; i < 16; i++) {
 
-    STACK_LOGGING(LOGFILE, stk1);
+        err_t PushStatus = StackPush(&stk1, 100);
 
-    StackPush(&stk1, 2);
+        if (!StackVerify(PushStatus)) return false;
 
-    STACK_LOGGING(LOGFILE, stk1);
+        STACK_LOGGING(LOGFILE, stk1);
 
-    StackPush(&stk1, 3);
+    }
 
-    STACK_LOGGING(LOGFILE, stk1);
+    for (unsigned int i = 0; i < 13; i++) {
 
-    StackPush(&stk1, 3);
+        err_t PopStatus = StackPop(&stk1);
 
-    STACK_LOGGING(LOGFILE, stk1);
+        if (!StackVerify(PopStatus)) return false;
 
-    StackPush(&stk1, 3);
+        STACK_LOGGING(LOGFILE, stk1);
 
-    STACK_LOGGING(LOGFILE, stk1);
-
-    StackPush(&stk1, 3);
-
-    STACK_LOGGING(LOGFILE, stk1);
-
-    StackPop(&stk1);
-
-    STACK_LOGGING(LOGFILE, stk1);
+    }
 
     StackDtor(&stk1);
     fclose(LOGFILE);
@@ -90,12 +87,14 @@ err_t StackCtor(stack_t * stk, ssize_t capasity) {
     ASSERT(stk);
 
     //! Error from constructor: stack is already constructed and maybe data has been using
-    if ((*stk).data[0] == STACK_POIZON || (*stk).data[(*stk).capasity] == STACK_POIZON || (*stk).capasity != 0) {
+    if ((*stk).data != NULL || (*stk).capasity != 0 || (*stk).size != 0) {
         return ERR_CTOR;
     }
 
     (*stk).data = (stackElem_t *)calloc(capasity, sizeof(stackElem_t));
     (*stk).capasity = capasity;
+
+    if ((*stk).data == NULL) return ERR_CALLOC;
 
     //! Show constructed struct
     //STACK_LOGGING(LOGFILE, *stk);
@@ -148,13 +147,18 @@ err_t StackPush(stack_t * stk, stackElem_t value) {
 
         printf("Stack if full\n");
 
-        (*stk).data = (stackElem_t *)realloc((*stk).data, (ssize_t)((*stk).capasity * MEMORY_UP_COEFF));
+        (*stk).data = (stackElem_t *)realloc((*stk).data, sizeof(stackElem_t)*(ssize_t)((*stk).capasity * MEMORY_UP_COEFF));
+
+        if ((*stk).data == NULL) return ERR_REALLOC;
+
         (*stk).capasity = (ssize_t)((*stk).capasity * MEMORY_UP_COEFF);
-        NewMemoryInit(stk, (*stk).data + (*stk).size + 1, (*stk).data + (*stk).capasity);
+        NewMemoryInit(stk, (*stk).data + (*stk).size, (*stk).data + (*stk).capasity);
 
     }
 
     (*stk).data[(*stk).size++] = (stackElem_t)value;
+
+    ASSERT(StackError(*stk));
 
     return true;
 }
@@ -176,11 +180,12 @@ stackElem_t StackPop(stack_t * stk) {
 
     //! Free up memory if there's a lot of space
     //! It works only if we have more than one realloc
-    if (((*stk).capasity > MIN_CAPASITY) && (*stk).size > ((*stk).size / 4)) {
+    if (((*stk).capasity > MIN_CAPASITY) && (*stk).size < ((*stk).capasity / 4)) {
 
-        (*stk).data = (stackElem_t *)realloc((*stk).data, (ssize_t)(((*stk).capasity) / MEMORY_UP_COEFF));
+        (*stk).data = (stackElem_t *)realloc((*stk).data, sizeof(stackElem_t)*(ssize_t)(((*stk).capasity) / MEMORY_UP_COEFF));
         (*stk).capasity = (ssize_t)(((*stk).capasity) / MEMORY_UP_COEFF);
 
+        if ((*stk).data == NULL) return ERR_REALLOC;
     }
 
     return currElem;
@@ -191,6 +196,29 @@ err_t StackError(stack_t stk) {
     if ((stk.size <= stk.capasity) && (stk.capasity > 0) && (stk.data != NULL)) return true;
     
     return false;
+}
+
+bool StackVerify(err_t ERR_CODE) {
+
+    switch (ERR_CODE)
+    {
+    case (ERR_CTOR):
+        printf(RED "Getted stack was already constructed\n" RESET);
+        return false;
+    
+    case (ERR_CALLOC):
+        printf(RED "Calloc returned NULL\n" RESET);
+        return false;
+
+    case (ERR_REALLOC):
+        printf(RED "Realloc returned NULL\n" RESET);
+        return false;
+    
+    default:
+        return true;
+        break;
+    }
+
 }
 
 void PrintStack(FILE * stream, stack_t stk) {

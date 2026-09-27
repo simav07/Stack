@@ -35,7 +35,7 @@ typedef double stackElem_t;
 //! Stack and all using parameters
 struct stack_t {
 
-    stackElem_t * data;
+    stackElem_t * data = NULL;
     ssize_t size = 0;
     ssize_t capasity = 0;
 
@@ -60,6 +60,10 @@ const char LOGFILE_NAME[] = "MyLogfile.txt";
 #define ASSERT(right_instr) do {} while(0)
 #endif
 
+//-------------------------------------------------------------------------
+// LOGGING
+//-------------------------------------------------------------------------
+
 #ifdef LOG_MODE
 
 #define STACK_LOGGING(logfile, stk) STACK_LOG(logfile, stk, #stk, __FILE__, __PRETTY_FUNCTION__, __LINE__)
@@ -68,10 +72,11 @@ const char LOGFILE_NAME[] = "MyLogfile.txt";
 #define STACK_LOGGING(logfile, stk) do {} while(0)
 
 #endif
+// --------------------------------------------------------------------------
 
-// ---------------------------------------------------
+// --------------------------------------------------------------------------
 //  Functions
-// ---------------------------------------------------
+// --------------------------------------------------------------------------
 
 //! Maximum complete stack printout
 void PrintStack(FILE * stream, stack_t stk);

@@ -14,6 +14,7 @@ typedef int err_t;
 
 enum {
 
+    ERR_OK,         //! All good
     ERR_CTOR,       //! Getted stack was already constructed
     ERR_CALLOC,     //! If calloc returned NULL
     ERR_REALLOC,    //! If realloc returned NULL
@@ -160,7 +161,7 @@ err_t StackPush(stack_t * stk, stackElem_t value) {
 
     ASSERT(StackError(*stk));
 
-    return true;
+    return ERR_OK;
 }
 
 stackElem_t StackPop(stack_t * stk) {

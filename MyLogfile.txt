@@ -1,0 +1,82 @@
+
+--------------------------------------------------------
+stack_t "stk1" created by function <int main()> in <main.cpp>. Line: 56
+Capasity = 3
+Size = 1
+data[0000028225821430]
+{
+	*[0] = 1
+	 [1] = 0
+	 [2] = 0
+}
+--------------------------------------------------------
+stack_t "stk1" created by function <int main()> in <main.cpp>. Line: 60
+Capasity = 3
+Size = 2
+data[0000028225821430]
+{
+	*[0] = 1
+	*[1] = 2
+	 [2] = 0
+}
+--------------------------------------------------------
+stack_t "stk1" created by function <int main()> in <main.cpp>. Line: 64
+Capasity = 3
+Size = 3
+data[0000028225821430]
+{
+	*[0] = 1
+	*[1] = 2
+	*[2] = 3
+}
+--------------------------------------------------------
+stack_t "stk1" created by function <int main()> in <main.cpp>. Line: 68
+Capasity = 6
+Size = 4
+data[0000028225821430]
+{
+	*[0] = 1
+	*[1] = 2
+	*[2] = 3
+	*[3] = 3
+	 [4] = nan
+	 [5] = nan
+}
+--------------------------------------------------------
+stack_t "stk1" created by function <int main()> in <main.cpp>. Line: 72
+Capasity = 6
+Size = 5
+data[0000028225821430]
+{
+	*[0] = 1
+	*[1] = 2
+	*[2] = 3
+	*[3] = 3
+	*[4] = 3
+	 [5] = nan
+}
+--------------------------------------------------------
+stack_t "stk1" created by function <int main()> in <main.cpp>. Line: 76
+Capasity = 6
+Size = 6
+data[0000028225821430]
+{
+	*[0] = 1
+	*[1] = 2
+	*[2] = 3
+	*[3] = 3
+	*[4] = 3
+	*[5] = 3
+}
+--------------------------------------------------------
+stack_t "stk1" created by function <int main()> in <main.cpp>. Line: 80
+Capasity = 3
+Size = 5
+data[0000028225821430]
+{
+	*[0] = 1
+	*[1] = 2
+	*[2] = 3
+	*[3] = 3
+	*[4] = 3
+}

@@ -1,6 +1,10 @@
 #ifndef STACK
 #define STACK
 
+typedef double stackElem_t;
+#define STACK_ELEM_FORMAT  "%lg"
+#define STACK_POIZON NAN
+
 #include <stdio.h>
 #include <ctype.h>
 #include <stdbool.h>
@@ -9,6 +13,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <stdint.h>
+#include <math.h>
 
 //---------------------------------------------------------------------------------------
 // Colors
@@ -31,10 +36,13 @@
 struct stack_t {
 
     stackElem_t * data;
-    size_t size;
-    size_t capasity;
+    ssize_t size = 0;
+    ssize_t capasity = 0;
 
 };
+
+//! Filename for logging
+const char LOGFILE_NAME[] = "MyLogfile.txt";
 
 #ifdef MYDEBUG
 
@@ -51,5 +59,25 @@ struct stack_t {
 #else
 #define ASSERT(right_instr) do {} while(0)
 #endif
+
+#ifdef LOG_MODE
+
+#define STACK_LOGGING(logfile, stk) STACK_LOG(logfile, stk, #stk, __FILE__, __PRETTY_FUNCTION__, __LINE__)
+
+#else
+#define STACK_LOGGING(logfile, stk) do {} while(0)
+
+#endif
+
+// ---------------------------------------------------
+//  Functions
+// ---------------------------------------------------
+
+//! Maximum complete stack printout
+void PrintStack(FILE * stream, stack_t stk);
+
+void STACK_LOG(FILE * logFile, stack_t stk, const char stkName[], const char * fileName, const char *funcName, unsigned int nLine);
+void CleanFile(const char filename[]);
+
 
 #endif

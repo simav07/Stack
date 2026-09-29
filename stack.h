@@ -68,21 +68,26 @@ const char LOGFILE_NAME[] = "MyLogfile.txt";
 
 #define STACK_LOGGING(logfile, stk) STACK_LOG(logfile, &(stk), #stk, __FILE__, __PRETTY_FUNCTION__, __LINE__)
 
+#define WRITE_ERROR_LOG(logfile, message) WriteErrorLog(logfile, message, __FILE__, __PRETTY_FUNCTION__)
+
 #else
 #define STACK_LOGGING(logfile, stk) do {} while(0)
 
+#define WRITE_ERROR_LOG (void)0
+
 #endif
-// --------------------------------------------------------------------------
 
 // --------------------------------------------------------------------------
 //  Functions
 // --------------------------------------------------------------------------
 
 //! Maximum complete stack printout
-void StackDump(FILE * stream, stack_t * stk);
+void StackDump(FILE * stream, const stack_t * stk);
 
-void STACK_LOG(FILE * logFile, stack_t * stk, const char stkName[], const char * fileName, const char *funcName, unsigned int nLine);
-void CleanFile(const char filename[]);
+//! Printout to the logfile (using StackDump)
+void STACK_LOG(FILE * logFile, const stack_t * stk, const char stkName[], const char * fileName, const char *funcName, unsigned int nLine);
 
+//! Write verified by StackVerify error to the logfile
+void WriteErrorLog(FILE * file_p, const char * message, const char * fileName, const char *funcName);
 
 #endif

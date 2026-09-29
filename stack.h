@@ -3,7 +3,7 @@
 
 typedef double stackElem_t;
 #define STACK_ELEM_FORMAT  "%lg"
-#define STACK_POIZON NAN
+#define STACK_POISON NAN
 
 #include <stdio.h>
 #include <ctype.h>
@@ -37,7 +37,7 @@ struct stack_t {
 
     stackElem_t * data = NULL;
     ssize_t size = 0;
-    ssize_t capasity = 0;
+    ssize_t capacity = 0;
 
 };
 
@@ -57,7 +57,7 @@ const char LOGFILE_NAME[] = "MyLogfile.txt";
     } \
 } while (0)
 #else
-#define ASSERT(right_instr) do {} while(0)
+#define ASSERT(right_instr) do {} while(0) // (void) 0 -- alternative
 #endif
 
 //-------------------------------------------------------------------------
@@ -66,7 +66,7 @@ const char LOGFILE_NAME[] = "MyLogfile.txt";
 
 #ifdef LOG_MODE
 
-#define STACK_LOGGING(logfile, stk) STACK_LOG(logfile, stk, #stk, __FILE__, __PRETTY_FUNCTION__, __LINE__)
+#define STACK_LOGGING(logfile, stk) STACK_LOG(logfile, &(stk), #stk, __FILE__, __PRETTY_FUNCTION__, __LINE__)
 
 #else
 #define STACK_LOGGING(logfile, stk) do {} while(0)
@@ -79,9 +79,9 @@ const char LOGFILE_NAME[] = "MyLogfile.txt";
 // --------------------------------------------------------------------------
 
 //! Maximum complete stack printout
-void PrintStack(FILE * stream, stack_t stk);
+void StackDump(FILE * stream, stack_t * stk);
 
-void STACK_LOG(FILE * logFile, stack_t stk, const char stkName[], const char * fileName, const char *funcName, unsigned int nLine);
+void STACK_LOG(FILE * logFile, stack_t * stk, const char stkName[], const char * fileName, const char *funcName, unsigned int nLine);
 void CleanFile(const char filename[]);
 
 

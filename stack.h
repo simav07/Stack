@@ -36,6 +36,7 @@ typedef double stackElem_t;
 struct stack_t {
 
     stackElem_t * data = NULL;
+    stackElem_t * dataBegin = NULL;
     ssize_t size = 0;
     ssize_t capacity = 0;
 

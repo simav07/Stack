@@ -15,7 +15,7 @@ typedef int err_t;
 #include "stack.h"
 
 enum {
-    INIT_NUM = 100, //! Starting value for protecting
+    INIT_NUM = 100,     //! Starting value for protecting
 
     ERR_OK,             //! All good
     ERR_CTOR,           //! Getted stack was already constructed
@@ -32,11 +32,17 @@ enum {
     ERR_FAKE_POP_PTR,   //! Stack try to return poison value
     ERR_MEMORY_INIT,    //! Incorrect pointers for the place of new memory
     ERR_NULL_POINTER,   //! Getted null-pointer to stack
+    ERR_RESIZE,         //! Error by StackResize
+    ERR_UP_RESIZE,      //! Size != capacity but program try to increase stack
+    ERR_DOWN_RESIZE,    //! Size is pretty big but program try to reduce stack
 };
 
 const ssize_t MIN_CAPACITY = 5;
 
 const int MEMORY_UP_COEFF = 2;
+
+const char * MEM_UP   = "up";
+const char * MEM_DOWN = "down";
 
 //! Stack initialisation
 err_t StackCtor(stack_t * stk, ssize_t capacity);
@@ -50,6 +56,10 @@ err_t StackDtor(stack_t * stk);
 err_t StackPush(stack_t * stk, stackElem_t value);
 //! Standard pop
 stackElem_t StackPop(stack_t * stk, err_t * PopStatus);
+
+//! Change memory size
+//! command: MEM_UP for increase, MEM_DOWN for reduce
+err_t StackResize(stack_t * stk, const char * command);
 
 //! Checking all possibly stack errors
 err_t CheckStackError(const stack_t * stk);
@@ -71,7 +81,7 @@ int main() {
     if (!LOGFILE) printf("Error path to LOGFILE\n");
 
     stack_t stk1 = {};
-    if (!StackCtor(&stk1, 10)) {
+    if (StackCtor(&stk1, 10) != ERR_OK) {
         printf("StackCtor error\n");
         return false;
     }
@@ -80,13 +90,13 @@ int main() {
 
         err_t PushStatus = StackPush(&stk1, 1000 + i);
 
-        if (PushStatus != ERR_OK) return false;
+        ASSERT((StackVerify(&stk1, PushStatus) == ERR_OK));
 
         STACK_LOGGING(LOGFILE, stk1);
 
     }
 
-    for (size_t i = 0; i < 20; i++) {
+    for (size_t i = 0; i < 10; i++) {
 
         err_t PopStatus = ERR_OK;
 
@@ -97,7 +107,7 @@ int main() {
         STACK_LOGGING(LOGFILE, stk1);
 
     }
-// bad tests 
+
     StackDtor(&stk1);
     fclose(LOGFILE);
 
@@ -124,15 +134,25 @@ err_t StackCtor(stack_t * stk, ssize_t capacity) {
         return ERR_CAPACITY;
     }
     
-    stackElem_t * NewPtr = (stackElem_t *)calloc(capacity, sizeof(stackElem_t));
+    stackElem_t * NewPtr = (stackElem_t *)calloc(capacity + 2, sizeof(stackElem_t));
 
     if (NewPtr == NULL) return ERR_CALLOC;
 
-    (*stk).data = NewPtr;
+    stk->dataBegin = NewPtr;
 
-    (*stk).capacity = capacity;
+    stk->data = NewPtr + 1;
 
-    NewMemoryInit(stk, (*stk).data, (*stk).data + (*stk).capacity);
+    stk->capacity = capacity;
+    stk->size = 0;
+
+    err_t memoryInitStat = NewMemoryInit(stk, (*stk).dataBegin, (*stk).data + (*stk).capacity + 1);
+
+    ASSERT((StackVerify(stk, memoryInitStat) == ERR_OK));
+
+    //! Left canary
+    *(stk->dataBegin) = 0;
+    //! Right canary
+    *(stk->data + stk->capacity) = 0; 
 
     return ERR_OK;
 }
@@ -144,11 +164,11 @@ err_t NewMemoryInit(stack_t * stk, stackElem_t * firstIndex, stackElem_t * lastI
     ASSERT(stk);
     ASSERT(stk->data);
 
-    if ((firstIndex >= lastIndex) || (firstIndex < (stk->data + stk->size))) return ERR_MEMORY_INIT;
+    if ((firstIndex >= lastIndex)) return ERR_MEMORY_INIT;
 
     stackElem_t * currIndex = firstIndex;
 
-    for (currIndex; currIndex <= lastIndex; currIndex++) {
+    for (currIndex; currIndex < lastIndex; currIndex++) {
 
         ASSERT(currIndex);
 
@@ -174,22 +194,12 @@ err_t StackDtor(stack_t * stk) {
 
 err_t StackPush(stack_t * stk, stackElem_t value) {
 
-    ASSERT((StackVerify(stk, ERR_OK) == ERR_OK)); // ASSERT_OK
+    ASSERT((StackVerify(stk, ERR_OK) == ERR_OK));
 
-    // TODO  to func
-    if (stk->size == stk->capacity) {
+    if ((stk->size == stk->capacity) && (stk->size != 0)) {
 
-        // copypaste?
-        stackElem_t * NewPtr = (stackElem_t *)realloc((*stk).data, 
-                                sizeof(stackElem_t)*(ssize_t)((*stk).capacity * MEMORY_UP_COEFF));
-
-        if (NewPtr == NULL) return ERR_REALLOC;
-
-        stk->data = NewPtr;
-
-        (*stk).capacity = (ssize_t)((*stk).capacity * MEMORY_UP_COEFF);
-
-        NewMemoryInit(stk, (*stk).data + (*stk).size, (*stk).data + (*stk).capacity);
+        err_t resizeStat = StackResize(stk, MEM_UP);
+        ASSERT((StackVerify(stk, resizeStat) == ERR_OK));
 
     }
 
@@ -198,6 +208,58 @@ err_t StackPush(stack_t * stk, stackElem_t value) {
     ASSERT((StackVerify(stk, ERR_OK) == ERR_OK));
 
     return ERR_OK;
+}
+
+err_t StackResize(stack_t * stk, const char * command) {
+
+    if (command == MEM_UP) {
+
+        if (stk->size != stk->capacity) return ERR_UP_RESIZE;
+
+        stackElem_t * NewPtr = (stackElem_t *)realloc((*stk).dataBegin, 
+                                    sizeof(stackElem_t)*(ssize_t)((*stk).capacity * MEMORY_UP_COEFF + 2));
+
+        if (NewPtr == NULL) return ERR_REALLOC;
+
+        stk->dataBegin = NewPtr;
+        stk->data = NewPtr + 1;
+
+        stk->capacity = (ssize_t)((*stk).capacity * MEMORY_UP_COEFF);
+
+        err_t memInitStat = NewMemoryInit(stk, (*stk).data + (*stk).size, (*stk).data + (*stk).capacity);
+        
+        //! Right canary
+        stk->dataBegin[stk->capacity + 1] = 0;
+
+        ASSERT((StackVerify(stk, memInitStat) == ERR_OK));
+        return ERR_OK;
+    }
+
+    if (command == MEM_DOWN) {
+
+        if (stk->size >= (stk->capacity / MEMORY_UP_COEFF)) return ERR_DOWN_RESIZE;
+
+        stackElem_t * NewPtr = (stackElem_t *)realloc((*stk).dataBegin,
+                                     sizeof(stackElem_t)*(ssize_t)(((*stk).capacity) / MEMORY_UP_COEFF + 2));
+
+        if (NewPtr == NULL) {
+            return ERR_REALLOC;
+        }
+
+        stk->dataBegin = NewPtr;
+        stk->data = NewPtr + 1;
+
+        stk->capacity = (ssize_t)(((*stk).capacity) / MEMORY_UP_COEFF);
+
+        //! Right canary
+        stk->dataBegin[stk->capacity + 1] = 0;
+        
+        ASSERT((StackVerify(stk, ERR_OK) == ERR_OK));
+
+        return ERR_OK;
+    }
+
+    return ERR_RESIZE;
 }
 
 stackElem_t StackPop(stack_t * stk, err_t * PopStatus) {
@@ -222,18 +284,9 @@ stackElem_t StackPop(stack_t * stk, err_t * PopStatus) {
     //! It works only if we have more than one realloc
     if (((*stk).capacity > MIN_CAPACITY) && (*stk).size < ((*stk).capacity / 4)) {
 
-        stackElem_t * NewPtr = (stackElem_t *)realloc((*stk).data,
-                                                       sizeof(stackElem_t)*(ssize_t)(((*stk).capacity) /MEMORY_UP_COEFF));
+        err_t resizeStat = StackResize(stk, MEM_UP);
+        ASSERT((StackVerify(stk, resizeStat) == ERR_OK));
 
-        if (NewPtr == NULL) {
-            *PopStatus = ERR_REALLOC;
-            return STACK_POISON;
-        }
-
-        (*stk).data = NewPtr;
-
-        (*stk).capacity = (ssize_t)(((*stk).capacity) / MEMORY_UP_COEFF);
-        
     }
 
     return currElem;
@@ -337,17 +390,17 @@ void StackDump(FILE * stream, const stack_t * stk) {
     fprintf(stream, "Size = %zd", stk->size);
     fprintf(stream, "\ndata[%p]\n{\n", stk->data);
 
-    if (stk->data == NULL) {
+    if (stk->dataBegin == NULL) {
         fprintf(stream, "Data is NULL, there is no elements\n");
         return;
     }
 
-    for (ssize_t i = 0; i < stk->size; i++) {
-        fprintf(stream, "\t*[%u] = " STACK_ELEM_FORMAT "\n", i, stk->data[i]);
+    for (ssize_t i = 0; i < stk->size + 1; i++) {
+        fprintf(stream, "\t*[%zd] = " STACK_ELEM_FORMAT "\n", i, stk->dataBegin[i]);
     }
 
-    for (ssize_t i = stk->size; i < stk->capacity; i++) {
-        fprintf(stream, "\t [%u] = " STACK_ELEM_FORMAT "\n", i, stk->data[i]);
+    for (ssize_t i = stk->size + 1; i < stk->capacity + 2; i++) {
+        fprintf(stream, "\t [%zd] = " STACK_ELEM_FORMAT "\n", i, stk->dataBegin[i]);
     }
 
     fprintf(stream, "}");

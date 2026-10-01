@@ -98,13 +98,13 @@ int main() {
 
     }
 
-    for (size_t i = 0; i < 16; i++) {
+    for (size_t i = 0; i < 30; i++) {
 
         err_t PopStatus = ERR_OK;
 
         StackPop(&stk1, &PopStatus);
 
-        if (PopStatus != ERR_OK) return false;
+        //if (PopStatus != ERR_OK) return false;
 
         STACK_LOGGING(LOGFILE, stk1);
 
@@ -283,7 +283,7 @@ stackElem_t StackPop(stack_t * stk, err_t * PopStatus) {
     ASSERT(stk);
     ASSERT((StackVerify(stk, ERR_OK) == ERR_OK));
     
-    if (stk->size == 0) {*PopStatus = ERR_FAKE_POP_PTR; return STACK_POISON;}
+    if (stk->size == 0) {StackVerify(stk, ERR_FAKE_POP_PTR); return STACK_POISON;}
 
     stk->size--;
 
@@ -446,8 +446,6 @@ size_t DjbHash(const void *data, size_t size) {
 
     for (size_t i = 0; i < size; i++)
         
-        ASSERT((ptr + i != NULL));
-
         hash = hash * 33 + ptr[i];
 
     return hash;
@@ -455,7 +453,9 @@ size_t DjbHash(const void *data, size_t size) {
 
 size_t StackHash(stack_t *stk) {
 
-    // ASSERT((StackVerify(stk, ERR_OK) == ERR_OK));
+    ASSERT(stk);
+    ASSERT((stk->size >= 0));
+    ASSERT((stk->data != NULL));
     
     stk->hash = DjbHash(stk->data, sizeof(stackElem_t) * stk->size);
 

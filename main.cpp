@@ -68,8 +68,10 @@ const char * ErrorDescription(err_t errCode);
 //! Verification of all errors
 err_t StackVerify(const stack_t * stk, err_t ERR_CODE);
 
-//! Hash protecting
+//! Calculate hash value
 size_t DjbHash(const void *data, size_t size);
+
+//! Update hash value
 size_t StackHash(stack_t *stk);
 
 //! Pointer to LogFile

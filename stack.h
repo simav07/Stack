@@ -5,6 +5,8 @@ typedef double stackElem_t;
 #define STACK_ELEM_FORMAT  "%lg"
 #define STACK_POISON NAN
 
+#include "colors.h"
+
 #include <stdio.h>
 #include <ctype.h>
 #include <stdbool.h>
@@ -15,31 +17,19 @@ typedef double stackElem_t;
 #include <stdint.h>
 #include <math.h>
 
-//---------------------------------------------------------------------------------------
-// Colors
-//---------------------------------------------------------------------------------------
-
-#define YELLOW "\x1b[33m"
-#define RED    "\x1b[31m"
-#define GREEN  "\x1b[32m"
-#define CYAN   "\x1b[36m"
-
-#define BOLD_RED    "\x1b[1;31m"
-#define BOLD_GREEN  "\x1b[1;32m"
-#define BOLD_CYAN   "\x1b[1;36m"
-#define BOLD_YELLOW "\x1b[1;33m"
-
-// Colors reset
-#define RESET  "\x1b[0m"
-
 //! Stack and all using parameters
 struct stack_t {
+
+    //! Left canary
+    const stackElem_t leftCanary = 0xDEADBABE;
 
     stackElem_t * data = NULL;
     stackElem_t * dataBegin = NULL;
     ssize_t size = 0;
     ssize_t capacity = 0;
 
+    //! Right canary
+    const stackElem_t rightCanary = 0xCAFEBABE;
 };
 
 //! Filename for logging

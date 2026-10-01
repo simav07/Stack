@@ -150,9 +150,9 @@ err_t StackCtor(stack_t * stk, ssize_t capacity) {
     ASSERT((StackVerify(stk, memoryInitStat) == ERR_OK));
 
     //! Left canary
-    *(stk->dataBegin) = 0;
+    *(stk->dataBegin) = stk->leftCanary;
     //! Right canary
-    *(stk->data + stk->capacity) = 0; 
+    *(stk->data + stk->capacity) = stk->rightCanary; 
 
     return ERR_OK;
 }
@@ -229,7 +229,7 @@ err_t StackResize(stack_t * stk, const char * command) {
         err_t memInitStat = NewMemoryInit(stk, (*stk).data + (*stk).size, (*stk).data + (*stk).capacity);
         
         //! Right canary
-        stk->dataBegin[stk->capacity + 1] = 0;
+        stk->dataBegin[stk->capacity + 1] = stk->rightCanary;
 
         ASSERT((StackVerify(stk, memInitStat) == ERR_OK));
         return ERR_OK;
@@ -396,10 +396,24 @@ void StackDump(FILE * stream, const stack_t * stk) {
     }
 
     for (ssize_t i = 0; i < stk->size + 1; i++) {
+
+        //! Print left canary
+        if (i == 0) {
+            fprintf(stream, "\t[canary] = %X\n", (unsigned int)stk->dataBegin[i]);
+            continue;
+        }
+
         fprintf(stream, "\t*[%zd] = " STACK_ELEM_FORMAT "\n", i, stk->dataBegin[i]);
     }
 
-    for (ssize_t i = stk->size + 1; i < stk->capacity + 2; i++) {
+    for (ssize_t i = stk->size + 1; i < stk->capacity + 2; i++) { // add nCanaries
+
+        //! Print right canary
+        if (i == stk->capacity + 1) {
+            fprintf(stream, "\t[canary] = %X\n", (unsigned int)stk->dataBegin[i]);
+            break;
+        }
+
         fprintf(stream, "\t [%zd] = " STACK_ELEM_FORMAT "\n", i, stk->dataBegin[i]);
     }
 

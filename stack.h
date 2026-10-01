@@ -8,6 +8,14 @@ typedef double stackElem_t;
 #define STACK_LEFT_CANARY  0xDEADBABE
 #define STACK_RIGHT_CANARY 0xCAFEBABE
 
+#ifdef HASH
+#define STACK_HASH(stk) StackHash(stk)
+
+#else
+#define STACK_HASH(stk) (void)0
+
+#endif
+
 #include "colors.h"
 #include "log.h"
 
@@ -37,6 +45,10 @@ struct stack_t {
 
     //! Right canary
     const stackElem_t rightCanary = STACK_RIGHT_CANARY;
+
+    #ifdef HASH
+    size_t hash = 0;
+    #endif
 };
 
 //! Filename for logging

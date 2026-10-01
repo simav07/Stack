@@ -39,6 +39,7 @@ enum {
     ERR_DOWN_RESIZE,    //! Size is pretty big but program try to reduce stack
     ERR_LEFT_CANARY,    //! Left canary was not defined
     ERR_RIGHT_CANARY,   //! Right canary was not defined
+    ERR_HASH,           //! Stack data was changed
 };
 
 //! Commands for StackResize()
@@ -78,6 +79,10 @@ const char * ErrorDescription(err_t errCode);
 
 //! Verification of all errors
 err_t StackVerify(const stack_t * stk, err_t ERR_CODE);
+
+//! Hash protecting
+size_t DjbHash(const void *data, size_t size);
+size_t StackHash(stack_t *stk);
 
 //! Pointer to LogFile
 static FILE * LOGFILE = NULL;
@@ -161,6 +166,8 @@ err_t StackCtor(stack_t * stk, ssize_t capacity) {
     //! Right canary
     *(stk->data + stk->capacity) = stk->rightCanary;
 
+    STACK_HASH(stk);
+
     ASSERT((StackVerify(stk, memoryInitStat) == ERR_OK));
 
     return ERR_OK;
@@ -185,6 +192,8 @@ err_t NewMemoryInit(stack_t * stk, stackElem_t * firstIndex, stackElem_t * lastI
 
     }
 
+    STACK_HASH(stk);
+
     return ERR_OK;
 }
 
@@ -198,7 +207,7 @@ err_t StackDtor(stack_t * stk) {
     (*stk).capacity = 0;
     (*stk).size = 0;
 
-    return true;
+    return ERR_OK;
 }
 
 err_t StackPush(stack_t * stk, stackElem_t value) {
@@ -208,6 +217,8 @@ err_t StackPush(stack_t * stk, stackElem_t value) {
     if ((stk->size == stk->capacity) && (stk->size != 0)) {
 
         err_t resizeStat = StackResize(stk, MEM_UP);
+        STACK_HASH(stk);
+
         ASSERT((StackVerify(stk, resizeStat) == ERR_OK));
 
         if (resizeStat != ERR_OK) return ERR_REALLOC;
@@ -215,6 +226,8 @@ err_t StackPush(stack_t * stk, stackElem_t value) {
     }
 
     (*stk).data[(*stk).size++] = (stackElem_t)value;
+
+    STACK_HASH(stk);
 
     ASSERT((StackVerify(stk, ERR_OK) == ERR_OK));
 
@@ -242,6 +255,8 @@ err_t StackResize(stack_t * stk, resizeCommand command) {
         //! Right canary
         stk->dataBegin[stk->capacity + 1] = stk->rightCanary;
 
+        STACK_HASH(stk);
+
         ASSERT((StackVerify(stk, memInitStat) == ERR_OK));
         return ERR_OK;
     }
@@ -264,7 +279,9 @@ err_t StackResize(stack_t * stk, resizeCommand command) {
 
         //! Right canary
         stk->dataBegin[stk->capacity + 1] = stk->rightCanary;
-        
+
+        STACK_HASH(stk);
+
         ASSERT((StackVerify(stk, ERR_OK) == ERR_OK));
 
         return ERR_OK;
@@ -282,12 +299,16 @@ stackElem_t StackPop(stack_t * stk, err_t * PopStatus) {
 
     stk->size--;
 
+    STACK_HASH(stk);
+
     ASSERT((StackVerify(stk, ERR_OK) == ERR_OK));
 
     stackElem_t currElem = stk->data[(*stk).size];
 
     ASSERT(currElem);
     stk->data[stk->size] = STACK_POISON;
+
+    STACK_HASH(stk);
 
     ASSERT((StackVerify(stk, ERR_OK) == ERR_OK));
 
@@ -296,6 +317,9 @@ stackElem_t StackPop(stack_t * stk, err_t * PopStatus) {
     if (((*stk).capacity > MIN_CAPACITY) && (*stk).size < ((*stk).capacity / 4)) {
 
         err_t resizeStat = StackResize(stk, MEM_DOWN);
+
+        STACK_HASH(stk);
+
         ASSERT((StackVerify(stk, resizeStat) == ERR_OK));
 
     }
@@ -320,6 +344,8 @@ err_t CheckStackError(const stack_t * stk) {
     if (stk->leftCanary != STACK_LEFT_CANARY) return ERR_LEFT_CANARY;
 
     if (stk->rightCanary != STACK_RIGHT_CANARY) return ERR_RIGHT_CANARY;
+
+    if (DjbHash(stk->data, (sizeof(stackElem_t) * (stk->size))) != stk->hash) return ERR_HASH;
 
     if (stk->dataBegin[stk->capacity + 1] != stk->rightCanary) return ERR_RIGHT_CANARY;
 
@@ -411,12 +437,43 @@ const char * ErrorDescription(err_t errCode) {
 
     case ERR_DATA_BEGIN:
         return "ERR_DATA_BEGIN: Getted null-pointer to begin of data";
+
+    case ERR_HASH:
+        return "ERR_HASH: Stack data was changed";
     
     default:
         ASSERT(0);
         return "UNKNOWN ERROR: Unknown error code";
     }
 }
+
+size_t DjbHash(const void *data, size_t size) {
+
+    ASSERT(data);
+
+    const unsigned char *ptr = (const unsigned char *)data;
+    ASSERT(ptr);
+
+    size_t hash = 5381;
+
+    for (size_t i = 0; i < size; i++)
+        
+        // ASSERT((ptr + i != NULL));
+
+        hash = hash * 33 + ptr[i];
+
+    return hash;
+}
+
+size_t StackHash(stack_t *stk) {
+
+    // ASSERT((StackVerify(stk, ERR_OK) == ERR_OK));
+    
+    stk->hash = DjbHash(stk->data, sizeof(stackElem_t) * stk->size);
+
+    return stk->hash;
+}
+
 
 void StackDump(FILE * stream, const stack_t * stk) {
 
@@ -425,6 +482,12 @@ void StackDump(FILE * stream, const stack_t * stk) {
     if (stk == NULL) {
         fprintf(stream, "ATTENTION! POINTER TO STACK IS NULL\n");
     }
+
+    #ifdef HASH
+
+    fprintf(stream, "[HASH VALUE = %zu]\n", stk->hash);
+
+    #endif
 
     fprintf(stream, "Capacity = %llu\n", stk->capacity);
     fprintf(stream, "Size = %zd", stk->size);

@@ -11,7 +11,7 @@
     } \
 } while (0)
 #else
-#define ASSERT(right_instr) do {} while(0) // (void) 0 -- alternative
+#define ASSERT(right_instr) (void)0
 #endif
 
 //-------------------------------------------------------------------------
@@ -25,7 +25,7 @@
 #define WRITE_ERROR_LOG(logfile, message) WriteErrorLog(logfile, message, __FILE__, __PRETTY_FUNCTION__)
 
 #else
-#define STACK_LOGGING(logfile, stk) do {} while(0)
+#define STACK_LOGGING(logfile, stk) (void)0
 
 #define WRITE_ERROR_LOG (void)0
 

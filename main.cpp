@@ -14,6 +14,7 @@ typedef int err_t;
 
 #include "stack.h"
 
+//! All possible errors this stack working
 enum {
     INIT_NUM = 100,     //! Starting value for protecting
 
@@ -32,17 +33,25 @@ enum {
     ERR_FAKE_POP_PTR,   //! Stack try to return poison value
     ERR_MEMORY_INIT,    //! Incorrect pointers for the place of new memory
     ERR_NULL_POINTER,   //! Getted null-pointer to stack
+    ERR_DATA_BEGIN,     //! Getted null-pointer to begin of data
     ERR_RESIZE,         //! Error by StackResize
     ERR_UP_RESIZE,      //! Size != capacity but program try to increase stack
     ERR_DOWN_RESIZE,    //! Size is pretty big but program try to reduce stack
+    ERR_LEFT_CANARY,    //! Left canary was not defined
+    ERR_RIGHT_CANARY,   //! Right canary was not defined
+};
+
+//! Commands for StackResize()
+enum resizeCommand {
+    
+    MEM_UP   = 10, //! Increase memory
+    MEM_DOWN = 20, //! Reduce memory
+
 };
 
 const ssize_t MIN_CAPACITY = 5;
 
 const int MEMORY_UP_COEFF = 2;
-
-const char * MEM_UP   = "up";
-const char * MEM_DOWN = "down";
 
 //! Stack initialisation
 err_t StackCtor(stack_t * stk, ssize_t capacity);
@@ -59,7 +68,7 @@ stackElem_t StackPop(stack_t * stk, err_t * PopStatus);
 
 //! Change memory size
 //! command: MEM_UP for increase, MEM_DOWN for reduce
-err_t StackResize(stack_t * stk, const char * command);
+err_t StackResize(stack_t * stk, resizeCommand command);
 
 //! Checking all possibly stack errors
 err_t CheckStackError(const stack_t * stk);
@@ -96,7 +105,7 @@ int main() {
 
     }
 
-    for (size_t i = 0; i < 10; i++) {
+    for (size_t i = 0; i < 16; i++) {
 
         err_t PopStatus = ERR_OK;
 
@@ -147,12 +156,12 @@ err_t StackCtor(stack_t * stk, ssize_t capacity) {
 
     err_t memoryInitStat = NewMemoryInit(stk, (*stk).dataBegin, (*stk).data + (*stk).capacity + 1);
 
-    ASSERT((StackVerify(stk, memoryInitStat) == ERR_OK));
-
     //! Left canary
     *(stk->dataBegin) = stk->leftCanary;
     //! Right canary
-    *(stk->data + stk->capacity) = stk->rightCanary; 
+    *(stk->data + stk->capacity) = stk->rightCanary;
+
+    ASSERT((StackVerify(stk, memoryInitStat) == ERR_OK));
 
     return ERR_OK;
 }
@@ -183,8 +192,8 @@ err_t StackDtor(stack_t * stk) {
 
     ASSERT(stk);
 
-    free((*stk).data);
-    stk->data = NULL;
+    free((*stk).dataBegin);
+    stk->dataBegin = NULL;
 
     (*stk).capacity = 0;
     (*stk).size = 0;
@@ -201,6 +210,8 @@ err_t StackPush(stack_t * stk, stackElem_t value) {
         err_t resizeStat = StackResize(stk, MEM_UP);
         ASSERT((StackVerify(stk, resizeStat) == ERR_OK));
 
+        if (resizeStat != ERR_OK) return ERR_REALLOC;
+
     }
 
     (*stk).data[(*stk).size++] = (stackElem_t)value;
@@ -210,7 +221,7 @@ err_t StackPush(stack_t * stk, stackElem_t value) {
     return ERR_OK;
 }
 
-err_t StackResize(stack_t * stk, const char * command) {
+err_t StackResize(stack_t * stk, resizeCommand command) {
 
     if (command == MEM_UP) {
 
@@ -252,7 +263,7 @@ err_t StackResize(stack_t * stk, const char * command) {
         stk->capacity = (ssize_t)(((*stk).capacity) / MEMORY_UP_COEFF);
 
         //! Right canary
-        stk->dataBegin[stk->capacity + 1] = 0;
+        stk->dataBegin[stk->capacity + 1] = stk->rightCanary;
         
         ASSERT((StackVerify(stk, ERR_OK) == ERR_OK));
 
@@ -267,7 +278,7 @@ stackElem_t StackPop(stack_t * stk, err_t * PopStatus) {
     ASSERT(stk);
     ASSERT((StackVerify(stk, ERR_OK) == ERR_OK));
     
-    if (stk->size == 0) *PopStatus = ERR_FAKE_POP_PTR;
+    if (stk->size == 0) {*PopStatus = ERR_FAKE_POP_PTR; return STACK_POISON;}
 
     stk->size--;
 
@@ -284,7 +295,7 @@ stackElem_t StackPop(stack_t * stk, err_t * PopStatus) {
     //! It works only if we have more than one realloc
     if (((*stk).capacity > MIN_CAPACITY) && (*stk).size < ((*stk).capacity / 4)) {
 
-        err_t resizeStat = StackResize(stk, MEM_UP);
+        err_t resizeStat = StackResize(stk, MEM_DOWN);
         ASSERT((StackVerify(stk, resizeStat) == ERR_OK));
 
     }
@@ -296,7 +307,9 @@ err_t CheckStackError(const stack_t * stk) {
 
     if (stk == NULL) return ERR_NULL_POINTER;
 
-    if (stk->data == NULL) return ERR_NULL_STACK;
+    if (stk->data == NULL) return ERR_DATA_PTR;
+
+    if (stk->dataBegin == NULL) return ERR_DATA_BEGIN;
 
     if (stk->size > stk->capacity) return ERR_BAD_SIZE;
 
@@ -304,7 +317,13 @@ err_t CheckStackError(const stack_t * stk) {
 
     if (stk->capacity < 0) return ERR_SIGN_CAPACITY;
 
-    if (stk->data == NULL) return ERR_DATA_PTR;
+    if (stk->leftCanary != STACK_LEFT_CANARY) return ERR_LEFT_CANARY;
+
+    if (stk->rightCanary != STACK_RIGHT_CANARY) return ERR_RIGHT_CANARY;
+
+    if (stk->dataBegin[stk->capacity + 1] != stk->rightCanary) return ERR_RIGHT_CANARY;
+
+    if (stk->dataBegin[0] != stk->leftCanary) return ERR_LEFT_CANARY;
     
     return ERR_OK;
 }
@@ -330,6 +349,8 @@ const char * ErrorDescription(err_t errCode) {
 
     switch (errCode)
     {
+    case ERR_OK:
+        return "ERR_OK: All good";
 
     case ERR_CTOR:
         return "ERR_CTOR: Getted stack was already constructed";
@@ -356,24 +377,43 @@ const char * ErrorDescription(err_t errCode) {
         return "ERR_ZERO_SIZE: Stack try to return value but size is zero";
 
     case ERR_SIGN_SIZE:
-        return "ERR_SIGN_SIZE: The size is less than zero\n";
+        return "ERR_SIGN_SIZE: The size is less than zero";
 
     case ERR_DATA_PTR:
-        return "ERR_DATA_PTR: Pointer to the stack is null, but stack already constructed";
+        return "ERR_DATA_PTR: Pointer to the stack if null, but stack already constructed";
 
     case ERR_SIGN_CAPACITY:
         return "ERR_SIGN_CAPACITY: The capacity is less than zero";
 
     case ERR_FAKE_POP_PTR:
         return "ERR_FAKE_POP_PTR: Stack try to return poison value";
-    
-    case (ERR_MEMORY_INIT):
+
+    case ERR_MEMORY_INIT:
         return "ERR_MEMORY_INIT: Incorrect pointers for the place of new memory";
-    
-    case (ERR_NULL_POINTER):
+
+    case ERR_NULL_POINTER:
         return "ERR_NULL_POINTER: Getted null-pointer to stack";
 
+    case ERR_RESIZE:
+        return "ERR_RESIZE: Error by StackResize";
+
+    case ERR_UP_RESIZE:
+        return "ERR_UP_RESIZE: Size != capacity but program try to increase stack";
+
+    case ERR_DOWN_RESIZE:
+        return "ERR_DOWN_RESIZE: Size is pretty big but program try to reduce stack";
+
+    case ERR_RIGHT_CANARY:
+        return "ERR_RIGHT_CANARY: Right canary was not defined";
+    
+    case ERR_LEFT_CANARY:
+        return "ERR_LEFT_CANARY: Left canary was not defined";
+
+    case ERR_DATA_BEGIN:
+        return "ERR_DATA_BEGIN: Getted null-pointer to begin of data";
+    
     default:
+        ASSERT(0);
         return "UNKNOWN ERROR: Unknown error code";
     }
 }
@@ -395,7 +435,7 @@ void StackDump(FILE * stream, const stack_t * stk) {
         return;
     }
 
-    for (ssize_t i = 0; i < stk->size + 1; i++) {
+    for (ssize_t i = 0; i < stk->size + stk->nCanaries; i++) {
 
         //! Print left canary
         if (i == 0) {
@@ -406,7 +446,7 @@ void StackDump(FILE * stream, const stack_t * stk) {
         fprintf(stream, "\t*[%zd] = " STACK_ELEM_FORMAT "\n", i, stk->dataBegin[i]);
     }
 
-    for (ssize_t i = stk->size + 1; i < stk->capacity + 2; i++) { // add nCanaries
+    for (ssize_t i = stk->size + stk->nCanaries; i < stk->capacity + (2 * stk->nCanaries); i++) {
 
         //! Print right canary
         if (i == stk->capacity + 1) {

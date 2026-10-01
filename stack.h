@@ -5,7 +5,11 @@ typedef double stackElem_t;
 #define STACK_ELEM_FORMAT  "%lg"
 #define STACK_POISON NAN
 
+#define STACK_LEFT_CANARY  0xDEADBABE
+#define STACK_RIGHT_CANARY 0xCAFEBABE
+
 #include "colors.h"
+#include "log.h"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -21,52 +25,22 @@ typedef double stackElem_t;
 struct stack_t {
 
     //! Left canary
-    const stackElem_t leftCanary = 0xDEADBABE;
+    const stackElem_t leftCanary = STACK_LEFT_CANARY;
 
     stackElem_t * data = NULL;
     stackElem_t * dataBegin = NULL;
     ssize_t size = 0;
     ssize_t capacity = 0;
 
+    //! Number of canaries at one side of stack
+    const size_t nCanaries = 1;
+
     //! Right canary
-    const stackElem_t rightCanary = 0xCAFEBABE;
+    const stackElem_t rightCanary = STACK_RIGHT_CANARY;
 };
 
 //! Filename for logging
 const char LOGFILE_NAME[] = "MyLogfile.txt";
-
-#ifdef MYDEBUG
-
-#define ASSERT(right_instr) do { \
-    if (!right_instr) { \
-        fprintf(stderr, "\nAssertion failed: (%s), file <%s>, line: %d\n\n", #right_instr, __FILE__, __LINE__); \
-        printf("Current function: %s\n", __PRETTY_FUNCTION__);\
-        printf(RED "Link to the line:\n" RESET);          \
-        printf("File: " __FILE__ ":%d:1:\n\n", __LINE__); \
-        printf(RED "--------------------------------------------------" RESET); \
-        abort(); \
-    } \
-} while (0)
-#else
-#define ASSERT(right_instr) do {} while(0) // (void) 0 -- alternative
-#endif
-
-//-------------------------------------------------------------------------
-// LOGGING
-//-------------------------------------------------------------------------
-
-#ifdef LOG_MODE
-
-#define STACK_LOGGING(logfile, stk) STACK_LOG(logfile, &(stk), #stk, __FILE__, __PRETTY_FUNCTION__, __LINE__)
-
-#define WRITE_ERROR_LOG(logfile, message) WriteErrorLog(logfile, message, __FILE__, __PRETTY_FUNCTION__)
-
-#else
-#define STACK_LOGGING(logfile, stk) do {} while(0)
-
-#define WRITE_ERROR_LOG (void)0
-
-#endif
 
 // --------------------------------------------------------------------------
 //  Functions

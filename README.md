@@ -8,7 +8,6 @@ The main goal is to make the stack not only functional, but also able to detect 
 
 ## Features
 
-- Dynamic memory allocation
 - Automatic stack resizing
 - Size and capacity validation
 - Pointer and memory checks
@@ -19,7 +18,6 @@ The main goal is to make the stack not only functional, but also able to detect 
 - Centralized validation with `StackVerify()`
 - Error codes and error descriptions
 - Error and stack state logging
-- `StackDump()` for debugging
 - Conditional compilation for debug features
 - `ssize_t` for checking negative `size` and `capacity`
 
@@ -105,4 +103,24 @@ It checks:
 If a problem is found, the function returns an error code.
 
 This makes error checking centralized and easier to maintain.
+
+## Using
+
+You can activate writing errors to the logfile, my custom assert or hash protecting. Use these flags during compilation.
+
+| Flag | Description |
+|-----------|----------------------|
+| -DASSERT   | Enable assert |
+| -DLOG_MODE | Enable log recording |
+| -DHASH     | Enable hash function |
+
+When compiling the program:
+```bash
+>>> gcc main.cpp -DMYDEBUG -DLOG_MODE -DHASH -o run
+>>> ./run.exe
+```
+
+## Examples
+
+You can see how logfile looks like in basic situation:
 

@@ -124,3 +124,8 @@ When compiling the program:
 
 You can see how logfile looks like in basic situation:
 
+![Visual presentation of stack in computers's memory](screens/logfile_screen.png)
+
+For example, assertion failed if there is unauthorized data modification (hash function detected it):
+
+![Hash function detected data modification]()

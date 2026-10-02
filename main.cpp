@@ -38,8 +38,10 @@ enum resizeCommand {
 
 };
 
+//! Minimal capacity for increasing stack
 const ssize_t MIN_CAPACITY = 5;
 
+//! Coefficient for increase in several times
 const int MEMORY_UP_COEFF = 2;
 
 //! Stack initialisation
@@ -90,6 +92,16 @@ int main() {
         return false;
     }
 
+    //-------- Hash test
+    /*
+    StackPush(&stk1, 1);
+    StackPush(&stk1, 2);
+    StackPush(&stk1, 3);
+    stk1.data[2] = 10;
+    err_t PopStatus = 0;
+    StackPop(&stk1, &PopStatus);
+    */
+
     for (size_t i = 0; i < 16; i++) {
 
         err_t PushStatus = StackPush(&stk1, 1000 + i);
@@ -100,13 +112,15 @@ int main() {
 
     }
 
+    stk1.data[7] = 666;
+
     for (size_t i = 0; i < 30; i++) {
 
         err_t PopStatus = ERR_OK;
 
         StackPop(&stk1, &PopStatus);
 
-        //if (PopStatus != ERR_OK) return false;
+        ASSERT(StackVerify(&stk1, PopStatus));
 
         STACK_LOGGING(LOGFILE, stk1);
 
@@ -335,7 +349,9 @@ err_t CheckStackError(const stack_t * stk) {
 
     if (stk->rightCanary != STACK_RIGHT_CANARY) return ERR_RIGHT_CANARY;
 
+    #ifdef HASH
     if (DjbHash(stk->data, (sizeof(stackElem_t) * (stk->size))) != stk->hash) return ERR_HASH;
+    #endif
 
     if (stk->dataBegin[stk->capacity + 1] != stk->rightCanary) return ERR_RIGHT_CANARY;
 
@@ -455,6 +471,7 @@ size_t DjbHash(const void *data, size_t size) {
 
 size_t StackHash(stack_t *stk) {
 
+    #ifdef HASH
     ASSERT(stk);
     ASSERT((stk->size >= 0));
     ASSERT((stk->data != NULL));
@@ -462,6 +479,8 @@ size_t StackHash(stack_t *stk) {
     stk->hash = DjbHash(stk->data, sizeof(stackElem_t) * stk->size);
 
     return stk->hash;
+
+    #endif
 }
 
 

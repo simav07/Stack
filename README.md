@@ -113,6 +113,7 @@ You can activate writing errors to the logfile, my custom assert or hash protect
 | -DASSERT   | Enable assert |
 | -DLOG_MODE | Enable log recording |
 | -DHASH     | Enable hash function |
+| -DCANARY   | Enable canaries      |
 
 When compiling the program:
 ```bash

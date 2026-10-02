@@ -117,7 +117,7 @@ You can activate writing errors to the logfile, my custom assert or hash protect
 
 When compiling the program:
 ```bash
->>> gcc main.cpp -DMYDEBUG -DLOG_MODE -DHASH -o run
+>>> gcc main.cpp -DMYDEBUG -DLOG_MODE -DHASH -DCANARY -o run
 >>> ./run.exe
 ```
 

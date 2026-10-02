@@ -128,4 +128,4 @@ You can see how logfile looks like in basic situation:
 
 For example, assertion failed if there is unauthorized data modification (hash function detected it):
 
-![Hash function detected data modification]()
+![Hash function detected data modification](screens/hash_assert.png)

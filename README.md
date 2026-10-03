@@ -113,10 +113,11 @@ You can activate writing errors to the logfile, my custom assert or hash protect
 | -DASSERT   | Enable assert |
 | -DLOG_MODE | Enable log recording |
 | -DHASH     | Enable hash function |
+| -DCANARY   | Enable canaries      |
 
 When compiling the program:
 ```bash
->>> gcc main.cpp -DMYDEBUG -DLOG_MODE -DHASH -o run
+>>> gcc main.cpp -DMYDEBUG -DLOG_MODE -DHASH -DCANARY -o run
 >>> ./run.exe
 ```
 

@@ -81,6 +81,9 @@ static FILE * LOGFILE = NULL;
 
 err_t CheckFile(FILE * file_p);
 
+//! Attack to stack from the outside
+void KillYourStack(stack_t * stk, size_t nBytesStruct);
+
 int main() {
 
     LOGFILE = fopen(LOGFILE_NAME, "w");
@@ -104,7 +107,7 @@ int main() {
 
     for (size_t i = 0; i < 16; i++) {
 
-        err_t PushStatus = StackPush(&stk1, 1000 + i);
+        err_t PushStatus = StackPush(&stk1, i + 1000);
 
         ASSERT((StackVerify(&stk1, PushStatus) == ERR_OK));
 
@@ -112,19 +115,9 @@ int main() {
 
     }
 
-    stk1.data[7] = 666;
+    StackDump(LOGFILE, &stk1);
 
-    for (size_t i = 0; i < 30; i++) {
-
-        err_t PopStatus = ERR_OK;
-
-        StackPop(&stk1, &PopStatus);
-
-        ASSERT(StackVerify(&stk1, PopStatus));
-
-        STACK_LOGGING(LOGFILE, stk1);
-
-    }
+    ASSERT((StackVerify(&stk1, ERR_OK) == ERR_OK));
 
     StackDtor(&stk1);
     fclose(LOGFILE);
@@ -158,17 +151,19 @@ err_t StackCtor(stack_t * stk, ssize_t capacity) {
 
     stk->dataBegin = NewPtr;
 
-    stk->data = NewPtr + 1;
+    stk->data = NewPtr + stk->nCanaries;
 
     stk->capacity = capacity;
     stk->size = 0;
 
-    err_t memoryInitStat = NewMemoryInit(stk, (*stk).dataBegin, (*stk).data + (*stk).capacity + 1);
+    err_t memoryInitStat = NewMemoryInit(stk, (*stk).dataBegin, (*stk).data + (*stk).capacity + stk->nCanaries);
 
+    #ifdef CANARY
     //! Left canary
     *(stk->dataBegin) = stk->leftCanary;
     //! Right canary
     *(stk->data + stk->capacity) = stk->rightCanary;
+    #endif
 
     STACK_HASH(stk);
 
@@ -245,19 +240,21 @@ err_t StackResize(stack_t * stk, resizeCommand command) {
         if (stk->size != stk->capacity) return ERR_UP_RESIZE;
 
         stackElem_t * NewPtr = (stackElem_t *)realloc((*stk).dataBegin, 
-                                    sizeof(stackElem_t)*(ssize_t)((*stk).capacity * MEMORY_UP_COEFF + 2));
+                                    sizeof(stackElem_t)*(ssize_t)((*stk).capacity * MEMORY_UP_COEFF + 2 * stk->nCanaries));
 
         if (NewPtr == NULL) return ERR_REALLOC;
 
         stk->dataBegin = NewPtr;
-        stk->data = NewPtr + 1;
+        stk->data = NewPtr + stk->nCanaries;
 
         stk->capacity = (ssize_t)((*stk).capacity * MEMORY_UP_COEFF);
 
         err_t memInitStat = NewMemoryInit(stk, (*stk).data + (*stk).size, (*stk).data + (*stk).capacity);
         
+        #ifdef CANARY
         //! Right canary
         stk->dataBegin[stk->capacity + 1] = stk->rightCanary;
+        #endif
 
         STACK_HASH(stk);
 
@@ -270,19 +267,21 @@ err_t StackResize(stack_t * stk, resizeCommand command) {
         if (stk->size >= (stk->capacity / MEMORY_UP_COEFF)) return ERR_DOWN_RESIZE;
 
         stackElem_t * NewPtr = (stackElem_t *)realloc((*stk).dataBegin,
-                                     sizeof(stackElem_t)*(ssize_t)(((*stk).capacity) / MEMORY_UP_COEFF + 2));
+                                     sizeof(stackElem_t)*(ssize_t)(((*stk).capacity) / MEMORY_UP_COEFF + 2 * stk->nCanaries));
 
         if (NewPtr == NULL) {
             return ERR_REALLOC;
         }
 
         stk->dataBegin = NewPtr;
-        stk->data = NewPtr + 1;
+        stk->data = NewPtr + stk->nCanaries;
 
         stk->capacity = (ssize_t)(((*stk).capacity) / MEMORY_UP_COEFF);
 
+        #ifdef CANARY
         //! Right canary
         stk->dataBegin[stk->capacity + 1] = stk->rightCanary;
+        #endif
 
         STACK_HASH(stk);
 
@@ -345,18 +344,22 @@ err_t CheckStackError(const stack_t * stk) {
 
     if (stk->capacity < 0) return ERR_SIGN_CAPACITY;
 
+    #ifdef CANARY
+
     if (stk->leftCanary != STACK_LEFT_CANARY) return ERR_LEFT_CANARY;
 
     if (stk->rightCanary != STACK_RIGHT_CANARY) return ERR_RIGHT_CANARY;
 
+    if (stk->dataBegin[stk->capacity + 1] != stk->rightCanary) return ERR_RIGHT_CANARY;
+
+    if (stk->dataBegin[0] != stk->leftCanary) return ERR_LEFT_CANARY;
+
+    #endif
+    
     #ifdef HASH
     if (DjbHash(stk->data, (sizeof(stackElem_t) * (stk->size))) != stk->hash) return ERR_HASH;
     #endif
 
-    if (stk->dataBegin[stk->capacity + 1] != stk->rightCanary) return ERR_RIGHT_CANARY;
-
-    if (stk->dataBegin[0] != stk->leftCanary) return ERR_LEFT_CANARY;
-    
     return ERR_OK;
 }
 
@@ -494,7 +497,7 @@ void StackDump(FILE * stream, const stack_t * stk) {
 
     #ifdef HASH
 
-    fprintf(stream, "[HASH VALUE = %zu]\n", stk->hash);
+    fprintf(stream, "[HASH VALUE = %zx]\n", stk->hash);
 
     #endif
 
@@ -509,22 +512,26 @@ void StackDump(FILE * stream, const stack_t * stk) {
 
     for (ssize_t i = 0; i < stk->size + stk->nCanaries; i++) {
 
+        #ifdef CANARY
         //! Print left canary
         if (i == 0) {
             fprintf(stream, "\t[canary] = %X\n", (unsigned int)stk->dataBegin[i]);
             continue;
         }
+        #endif
 
         fprintf(stream, "\t*[%zd] = " STACK_ELEM_FORMAT "\n", i, stk->dataBegin[i]);
     }
 
     for (ssize_t i = stk->size + stk->nCanaries; i < stk->capacity + (2 * stk->nCanaries); i++) {
 
+        #ifdef CANARY
         //! Print right canary
         if (i == stk->capacity + 1) {
             fprintf(stream, "\t[canary] = %X\n", (unsigned int)stk->dataBegin[i]);
             break;
         }
+        #endif
 
         fprintf(stream, "\t [%zd] = " STACK_ELEM_FORMAT "\n", i, stk->dataBegin[i]);
     }

@@ -27,24 +27,32 @@ typedef double stackElem_t;
 #include <stdlib.h>
 #include <errno.h>
 #include <stdint.h>
+#include <string.h>
 #include <math.h>
 
 //! Stack and all using parameters
 struct stack_t {
 
+    #ifdef CANARY
     //! Left canary
     const stackElem_t leftCanary = STACK_LEFT_CANARY;
+    #endif
 
     stackElem_t * data = NULL;
     stackElem_t * dataBegin = NULL;
     ssize_t size = 0;
     ssize_t capacity = 0;
 
+    #ifdef CANARY
     //! Number of canaries at one side of stack
     const size_t nCanaries = 1;
 
     //! Right canary
     const stackElem_t rightCanary = STACK_RIGHT_CANARY;
+
+    #else
+    const size_t nCanaries = 0;
+    #endif
 
     #ifdef HASH
     size_t hash = 0;
